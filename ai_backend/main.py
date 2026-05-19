@@ -5,7 +5,6 @@ from pydantic import BaseModel
 import os
 import base64
 import json
-from PIL import Image
 from dotenv import load_dotenv
 from ibm_watsonx_ai import APIClient
 from ibm_watsonx_ai import Credentials
@@ -237,6 +236,66 @@ async def generate_img(file: UploadFile = File(...)):
     except Exception as e:
         print(e)
         raise HTTPException(status_code=500, detail=f"Error analyzing image: {str(e)}")
+
+@app.post("/generate-reuse", response_model=PromptResponse)
+async def generateReuse(request: PromptRequest):
+    try:
+        if not request.prompt and not request.prompt.strip():
+            raise HTTPException(status_code=400, detail="Prompt cannot be empty")
+        
+        model.params["max_new_tokens"] = request.max_tokens
+
+        # System prompt
+
+        system_prompt = '''
+            당신은 회고 생성하는 어시스턴트 AI 서비스입니다.
+        '''
+
+        # User Prompt
+
+        user_prompt = '''
+            input: f{request.prompt}
+
+            다음과 같은 형식으로 회고 답안을 주세요.
+            
+            회고 제목 : ex) 나를 위한 보상보다 아쉬움이 더 컸던 오늘
+
+            소비 이유 : ex) 보상 심리
+
+            만족도 : 숫자로 표현(최대 5)
+
+            내일의 다짐: 지출 줄이기
+
+            이런 점을 바꿔보면 어떨까요? 4줄로 (~요)로 결정
+
+            보상 심리가 생길땐 이렇게 해보세요 : 3가지 (~기로 설정)
+        '''
+
+        messages = [
+            {"role": "system", "content": system_prompt },
+            {"role": "user", "content": user_prompt }
+        ]
+
+        response = model.chat(messages = messages)
+
+        if isinstance(response, str):
+            try:
+                response_obj = json.loads(response)
+            except:
+                response_obj = {"result": response}
+        else:
+            response_obj = {"result": response}
+
+        return PromptResponse(
+            prompt=request.prompt,
+            response=response_obj
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error analyzing image: {str(e)}")
+
+
+
 
 @app.post("/generate-detailed", response_model=dict)
 async def generate_detailed(request: PromptRequest):
