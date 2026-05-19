@@ -50,7 +50,7 @@ export default function ImagePage() {
 
       }
     } catch (err) {
-      console.error("에러:", err);
+      console.log("에러:", err);
       setResult("오류가 발생했습니다. 다시 시도해주세요.");
     } finally {
       setLoading(false);
