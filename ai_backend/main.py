@@ -3,11 +3,11 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import os
+import base64
 from dotenv import load_dotenv
 from ibm_watsonx_ai import APIClient
 from ibm_watsonx_ai import Credentials
 from ibm_watsonx_ai.foundation_models import ModelInference
-import os, base64
 from typing import Optional
 
 # Load environment variables from .env file
@@ -76,6 +76,11 @@ class PromptRequest(BaseModel):
 class PromptResponse(BaseModel):
     prompt: str
     response: dict  # JSON 객체로 변경
+
+async def image_to_base64(file: UploadFile):
+    content = await file.read()
+    image_base64 = base64.b64encode(content).decode("utf-8")
+    return image_base64
 
 
 @app.get("/health")
@@ -147,6 +152,7 @@ async def generate_text(request: PromptRequest):
             response=response_obj
         )
     except Exception as e:
+        print(e)
         raise HTTPException(status_code=500, detail=f"Error generating text: {str(e)}")
     
 
@@ -166,16 +172,31 @@ async def generate_img(file: UploadFile = File(...)):
             raise HTTPException(status_code=400, detail="Image file is required")
 
         # Read the uploaded file
-        contents = await file.read()
-        image_b64_encoded_string = base64.b64encode(contents).decode('utf-8')
+        image_b64_encoded_string = await image_to_base64(file)
 
         # System prompt
         system_prompt2 = '''
-            이미지 분석하는 프로그램 AI이야.
+            당신은 이미지 분석 전문가 AI입니다.
+            사용자의 요청에 따라
+
+            - 이미지 설명
+            - 분위기 분석
+            - 감정 분석
+            - 객체 설명
+            - 캡션 생성
+            - 여행 추천
+            - 스타일 분석
+
+            등을 수행하세요.
+
+            항상
+            - 한국어로 답변
+            - 사용자의 요청 의도를 우선 반영
+            - 읽기 쉽게 작성
         '''
 
         # User Prompt
-        user_prompt = '이미지를 분석해줘.'
+        user_prompt = '시스템 프롭프트에 따라 이미지를 분석해줘.'
 
         messages = [
             {"role": "system", "content": system_prompt2 },
@@ -209,6 +230,7 @@ async def generate_img(file: UploadFile = File(...)):
             response=response_obj
         )
     except Exception as e:
+        print(e)
         raise HTTPException(status_code=500, detail=f"Error analyzing image: {str(e)}")
 
 
