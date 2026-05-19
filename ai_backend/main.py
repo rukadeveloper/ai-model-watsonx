@@ -4,6 +4,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import os
 import base64
+import json
+from PIL import Image
 from dotenv import load_dotenv
 from ibm_watsonx_ai import APIClient
 from ibm_watsonx_ai import Credentials
@@ -72,6 +74,10 @@ class PromptRequest(BaseModel):
     max_tokens: int = 100
     image_url: Optional[str] = None
 
+class ChatRequest(BaseModel):
+    message: dict  # {"text": str, "files": list}
+    history: list = []  # conversation history
+
 
 class PromptResponse(BaseModel):
     prompt: str
@@ -81,7 +87,6 @@ async def image_to_base64(file: UploadFile):
     content = await file.read()
     image_base64 = base64.b64encode(content).decode("utf-8")
     return image_base64
-
 
 @app.get("/health")
 async def health_check():
@@ -138,7 +143,7 @@ async def generate_text(request: PromptRequest):
 
         response = model.chat(messages = messages)
 
-        import json
+        
         if isinstance(response, str):
             try:
                 response_obj = json.loads(response)
@@ -232,7 +237,6 @@ async def generate_img(file: UploadFile = File(...)):
     except Exception as e:
         print(e)
         raise HTTPException(status_code=500, detail=f"Error analyzing image: {str(e)}")
-
 
 @app.post("/generate-detailed", response_model=dict)
 async def generate_detailed(request: PromptRequest):
